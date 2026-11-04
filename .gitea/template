@@ -1,0 +1,4 @@
+# Files in which Gitea expands $REPO_NAME, $REPO_OWNER, etc. when a new repo
+# is generated from this template.
+CMakeLists.txt
+README.md
