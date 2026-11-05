@@ -127,11 +127,19 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
+  // ---> PUT YOUR PRE SUPER LOOP SETUP CODE HERE <---
+
+
+  
+  for(;;)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    //  ---> PUT YOUR SUPER LOOP CODE HERE <---
+  
+    
+  
   }
   /* USER CODE END 3 */
 }
