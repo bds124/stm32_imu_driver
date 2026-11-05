@@ -138,8 +138,9 @@ int main(void)
     /* USER CODE BEGIN 3 */
     //  ---> PUT YOUR SUPER LOOP CODE HERE <---
   
-    
-  
+    HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
+    HAL_Delay(500);
+
   }
   /* USER CODE END 3 */
 }
