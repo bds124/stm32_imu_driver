@@ -51,6 +51,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/MPU6050/driver_mpu6050.c
     Drivers/MPU6050/driver_mpu6050_interface.c
     Drivers/MPU6050/driver_mpu6050_basic.c
+    Drivers/MPU6050/driver_mpu6050_dmp.c
 )
 
 # Add include paths

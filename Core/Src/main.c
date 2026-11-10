@@ -20,6 +20,8 @@
 #include "main.h"
 #include "driver_mpu6050.h"
 #include "driver_mpu6050_basic.h"
+#include "driver_mpu6050_dmp.h"
+#include "driver_mpu6050_interface.h"
 #include "stm32f7xx_hal.h"
 #include "stm32f7xx_hal_def.h"
 #include "stm32f7xx_hal_gpio.h"
@@ -138,11 +140,24 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   // ---> PUT YOUR PRE SUPER LOOP SETUP CODE HERE <---
 
-  if (mpu6050_basic_init(MPU6050_ADDRESS_AD0_LOW) != 0) {
+  if (mpu6050_dmp_init(MPU6050_ADDRESS_AD0_LOW, &mpu6050_interface_receive_callback, &mpu6050_interface_dmp_tap_callback, &mpu6050_interface_dmp_orient_callback) != 0) {
+    // Flash red LED if fails
     HAL_GPIO_TogglePin (GPIOB, GPIO_PIN_14);
   }
-  float g[3];
-  float dps[3];
+
+  // Static to avoid stack overflow
+  static int16_t accel_raw[128][3];
+  static int16_t gyro_raw[128][3];
+  static float accel_g[128][3];
+  static float gyro_dps[128][3];
+  static int32_t quat[128][4];
+  static float pitch[128];
+  static float roll[128];
+  static float yaw[128];
+  uint16_t l;
+
+  // uint8_t who_am_i = 0;
+  // HAL_StatusTypeDef status;
   
   for(;;)
   {
@@ -150,24 +165,54 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     //  ---> PUT YOUR SUPER LOOP CODE HERE <---
-  
-      uint8_t who_am_i = 0;
-      HAL_StatusTypeDef status;
 
-      //0x68 shifted left by 1 bit
-      status = HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x75, I2C_MEMADD_SIZE_8BIT, &who_am_i, 1, 100);
+      l = 128;
 
-      if (status == HAL_OK && who_am_i == 0x68) {
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
-      } else {
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
+      // status = HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x75, I2C_MEMADD_SIZE_8BIT, &who_am_i, 1, 100);
+      // 
+      // if (status == HAL_OK && who_am_i == 0x68) {
+        // Flash green if who_am_i passes
+      //   HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
+      // } else {
+        // Flash red if who_am_i fails
+      //   HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
+      // }
+
+      if (mpu6050_dmp_read_all(accel_raw, accel_g, gyro_raw, gyro_dps, quat, pitch, roll, yaw, &l) == 0) {
+        // Success
+        if (l > 0) {
+          char msg[256];
+
+          // Accel in milli-g (mg) cause %f doesn't work
+          int32_t ax_mg = (int32_t)(accel_g[l-1][0] * 1000.0f);
+          int32_t ay_mg = (int32_t)(accel_g[l-1][1] * 1000.0f);
+          int32_t az_mg = (int32_t)(accel_g[l-1][2] * 1000.0f);
+
+          // Gyro in centidegrees per sec (cdeg/s) cause %f doesn't work
+          int32_t gx_cdps = (int32_t)(gyro_dps[l-1][0] * 100.0f);
+          int32_t gy_cdps = (int32_t)(gyro_dps[l-1][1] * 100.0f);
+          int32_t gz_cdps = (int32_t)(gyro_dps[l-1][2] * 100.0f);
+
+          // Quaternions scaled directly from +/- 10,000 directly from raw 32 bit DMP integers
+          int32_t qw = (int32_t)(((int64_t)quat[l-1][0] * 10000) >> 30);
+          int32_t qx = (int32_t)(((int64_t)quat[l-1][1] * 10000) >> 30);
+          int32_t qy = (int32_t)(((int64_t)quat[l-1][2] * 10000) >> 30);
+          int32_t qz = (int32_t)(((int64_t)quat[l-1][3] * 10000) >> 30);
+
+          // Pitch, roll, and yaw in centidegrees
+          int32_t p = (int32_t)(pitch[l-1] * 100.0f);
+          int32_t r = (int32_t)(roll[l-1] * 100.0f);
+          int32_t y = (int32_t)(yaw[l-1] * 100.0f);
+
+          uint8_t len = snprintf(msg, sizeof(msg),
+                                 "Acc[mg]:%ld,%ld,%ld | Gyr[cdps]:%ld,%ld,%ld, | Q[x10k]: %ld,%ld,%ld,%ld | P[x100]:%ld | R[x100]:%ld | Y[x100]:%ld\r\n", 
+                                 ax_mg, ay_mg, az_mg, gx_cdps, gy_cdps, gz_cdps, qw, qx, qy, qz, p, r, y);
+          
+          HAL_UART_Transmit(&huart3, (uint8_t *)msg, (uint16_t) len, 100);
+        }
       }
 
-      if (mpu6050_basic_read(g, dps) == 0) {
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
-      }
-
-      HAL_Delay(200);
+      HAL_Delay(50);
 
   }
   /* USER CODE END 3 */
