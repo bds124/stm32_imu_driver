@@ -18,6 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "driver_mpu6050.h"
+#include "driver_mpu6050_basic.h"
+#include "stm32f7xx_hal.h"
+#include "stm32f7xx_hal_def.h"
+#include "stm32f7xx_hal_gpio.h"
 #include "string.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -133,7 +138,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   // ---> PUT YOUR PRE SUPER LOOP SETUP CODE HERE <---
 
-
+  if (mpu6050_basic_init(MPU6050_ADDRESS_AD0_LOW) != 0) {
+    HAL_GPIO_TogglePin (GPIOB, GPIO_PIN_14);
+  }
+  float g[3];
+  float dps[3];
   
   for(;;)
   {
@@ -142,8 +151,23 @@ int main(void)
     /* USER CODE BEGIN 3 */
     //  ---> PUT YOUR SUPER LOOP CODE HERE <---
   
-    HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
-    HAL_Delay(500);
+      uint8_t who_am_i = 0;
+      HAL_StatusTypeDef status;
+
+      //0x68 shifted left by 1 bit
+      status = HAL_I2C_Mem_Read(&hi2c1, (0x68 << 1), 0x75, I2C_MEMADD_SIZE_8BIT, &who_am_i, 1, 100);
+
+      if (status == HAL_OK && who_am_i == 0x68) {
+        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
+      } else {
+        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
+      }
+
+      if (mpu6050_basic_read(g, dps) == 0) {
+        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+      }
+
+      HAL_Delay(200);
 
   }
   /* USER CODE END 3 */
